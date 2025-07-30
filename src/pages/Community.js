@@ -15,7 +15,7 @@ const Community = () => {
     }, []);
 
     useEffect(() => {
-        if (cardsData.length <= 0) {
+        if (cardsData.length <= 0 || cardsData === undefined || !Array.isArray(cardsData)) {
             setCards([]);
         } else {
             setCards(cardsData.map((data, index) => (

@@ -35,7 +35,7 @@ const MainNavbar = props => {
         })
 
         const data = await response.json();
-        if (data) {
+        if (data && data.iduser) {
             let parsedData = {
                 email: user.email,
                 name: user.name,
@@ -43,17 +43,13 @@ const MainNavbar = props => {
                 iduser: data.iduser
             }
             localStorage.setItem("user", JSON.stringify(parsedData));
-            setUserData({
-                email: user.email,
-                name: user.name,
-                profile_photo: user.picture,
-                iduser: data.iduser
-            });
+            setUserData(parsedData);
         }
     }
 
     const handleLogout = () => {
         localStorage.removeItem("user");
+        setUserData(null);
     }
 
     return (
@@ -103,10 +99,10 @@ const MainNavbar = props => {
                             onToggle={(isOpen) => setIsProfileDropdownOpen(isOpen)}
                         >
                             <NavDropdown.Item href="/profile">Profile</NavDropdown.Item>
-                            <NavDropdown.Item href="/" onClick={handleLogout()}>Logout</NavDropdown.Item>
+                            <NavDropdown.Item onClick={handleLogout}>Logout</NavDropdown.Item>
                         </NavDropdown>
                         : <GoogleLogin
-                            onSuccess={credentialResponse => {handleLogin(credentialResponse)}}
+                            onSuccess={handleLogin}
                             onError={() => {
                                 console.log('Login Failed');
                             }}
