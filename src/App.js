@@ -1,25 +1,22 @@
-import logo from './logo.svg';
-import './App.css';
+import MainNavbar from "./components/MainNavbar";
+import 'bootstrap/dist/css/bootstrap.min.css';
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Community from "./pages/Community";
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+const App = () => {
+	return (
+		<Router>
+			<MainNavbar></MainNavbar>
+			<Routes>
+				<Route path="/" element={<Community/>} />
+				<Route path="/about" element={<h1>About Page</h1>} />
+				<Route path="/contact" element={<h1>Contact Page</h1>} />
+				<Route path="/settings" element={<h1>Settings Page</h1>} />
+				<Route path="/profile" element={<h1>Profile Page</h1>} />
+				<Route path="*" element={<h1>404 Not Found</h1>} />
+			</Routes>
+		</Router>
+	);
 }
 
 export default App;
