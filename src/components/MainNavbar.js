@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 const MainNavbar = props => {
     const [userData, setUserData] = useState(null);
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+    const navigate = useNavigate();
 
     useEffect(() => {
         const user = localStorage.getItem("user");
@@ -47,7 +48,8 @@ const MainNavbar = props => {
     const handleLogout = () => {
         localStorage.removeItem("user");
         setUserData(null);
-    }
+        navigate("/");
+    }   
 
     return (
         <Navbar className="bg-body-tertiary sticky-top" expand="sm">
