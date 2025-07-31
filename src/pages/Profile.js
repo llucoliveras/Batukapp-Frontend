@@ -1,19 +1,32 @@
 import { Button, Card, FloatingLabel, Form, Image, Modal, Toast, ToastContainer } from 'react-bootstrap';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import Skeleton from 'react-loading-skeleton';
-import { lightenHex, getTextColorForBackground } from '../functions/Colors';
+import { lightenColor, darkenColor, getTextColorForBackground } from '../functions/Colors';
 
-const CustomCardText = ({ field, isLoadingData }) => (
-    <Card.Text key={field.name}>
-        <strong>{field.title}:</strong>{" "}
-        {isLoadingData ? (
-            <Skeleton width={200} />
-        ) : field.value ? (
-            field.value
+const CustomCardField = ({ field, isLoadingData }) => (field.type === 'color'
+    ? (
+        <Card.Text key={field.name}>
+            <strong>{field.title}:</strong>{" "}
+            {isLoadingData ? (
+                <Skeleton width={200} />
+            ) : (
+                <span style={{ backgroundColor: field.value, padding: '5px 10px', borderRadius: '5px', color: getTextColorForBackground(field.value), border: '1px solid #ccc', boxShadow: '0 0 5px rgba(0,0,0,0.3)' }}>
+                    {field.value}
+                </span>
+            )}
+        </Card.Text>
+    ) : (
+        <Card.Text key={field.name}>
+            <strong>{field.title}:</strong>{" "}
+            {isLoadingData ? (
+                <Skeleton width={200} />
+            ) : field.value ? (
+                field.value
         ) : (
             "No data found"
         )}
-    </Card.Text>
+        </Card.Text>
+    )
 );
 
 const EditProfileModal = ({ show, editModalInformation, handleClose, onSave }) => {
@@ -26,9 +39,23 @@ const EditProfileModal = ({ show, editModalInformation, handleClose, onSave }) =
         }
     }, [editModalInformation, show]);
 
+    const validateData = useCallback(() => {
+        return editModalInformation.fields &&
+            editableData.every((field, i) => {
+                const original = editModalInformation.fields[i];
+                const matchesValue = field.value === original?.value;
+                const withinLength = !field.max_length || field.value.length <= field.max_length;
+                const patternValid =
+                    !field.pattern ||
+                    (field.pattern instanceof RegExp && field.pattern.test(field.value));
+
+                return matchesValue && withinLength && patternValid;
+            });
+    }, [editableData, editModalInformation.fields]);
+
     useEffect(() => {
         setIsValidData(validateData());
-    }, [editableData]);
+    }, [validateData]);
 
     const handleSave = async () => {
         const context = editModalInformation?.context;
@@ -55,27 +82,12 @@ const EditProfileModal = ({ show, editModalInformation, handleClose, onSave }) =
 
             if (!res.ok) throw new Error('Save failed');
 
-            const updatedData = await res.json();
             onSave(payload, id);
             handleClose();
         } catch (err) {
             alert(`Failed to save ${context} info`);
         }
     };
-
-    const validateData = () => {
-        return editModalInformation.fields &&
-            editableData.every((field, i) => {
-                const original = editModalInformation.fields[i];
-                const matchesValue = field.value === original?.value;
-                const withinLength = !field.max_length || field.value.length <= field.max_length;
-                const patternValid =
-                    !field.pattern ||
-                    (field.pattern instanceof RegExp && field.pattern.test(field.value));
-
-                return matchesValue && withinLength && patternValid;
-            });
-    }
 
     return(
         <Modal show={show} onHide={handleClose}>
@@ -95,8 +107,10 @@ const EditProfileModal = ({ show, editModalInformation, handleClose, onSave }) =
                                 field.type === 'date' ? 'YYYY-MM-DD'
                                 : field.type === 'email' ? 'name@example.com'
                                 : field.type === 'text' ? 'Enter text'
+                                : field.type === 'color' ? 'Select color'
                                 : ''
                             }
+                            style={ field.type === 'color' ? { minWidth: '150px' } : {} }
                             value={field.value}
                             onChange={(e) => {
                                 const updated = [...editableData];
@@ -116,41 +130,24 @@ const EditProfileModal = ({ show, editModalInformation, handleClose, onSave }) =
     )
 }
 
-const ShowUserProfile = ({ userData, setEditModalInformation, isLoadingData }) => {
-    return (
-        <Card className="m-4 mb-4">
-            <Card.Header className='h3'>
-                User Information
-                <Button variant='warning' className="float-end" onClick={() => setEditModalInformation(userData)}>Edit</Button>
-            </Card.Header>
-            <Card.Body className='position-relative'>
-                <div className="position-absolute top-0 end-0 p-3 height-100 width-auto object-fit-cover">
-                    {userData ? <Image src={userData.profile_picture} style={{ width: '100px', height: '100px', objectFit: 'cover' }} /> : <Skeleton width={100} height={100} />}
-                </div>
-                { userData.fields && userData.fields.length > 0 && userData.fields.map((field, index) => (
-                    <CustomCardText key={index} field={field} isLoadingData={isLoadingData} />
-                ))}
-            </Card.Body>
-        </Card>
-    )
-}
-
-const ShowBandProfile = ({ bandData, setEditModalInformation, isLoadingData }) => {
-    const backgroundColor = bandData?.color_code || '#FFFFFF';
+const ShowEntityProfile = ({ data, setEditModalInformation, isLoadingData }) => {
+    const transparencyPercentage = data.transparency || 70;  // example
+    const hexTransparency = Math.round((transparencyPercentage / 100) * 255).toString(16).padStart(2, '0');
+    const backgroundColor = (data?.color_code || '#FFFFFF') + hexTransparency;
     const textColor = getTextColorForBackground(backgroundColor);
 
     return (
-        <Card className="m-4 mb-4">
-            <Card.Header className="h3" style={{ backgroundColor: backgroundColor, color: textColor, textShadow: '2px 2px 4px rgba(0, 0, 0, 0.6)' }} >
-                {bandData ? bandData.name : isLoadingData ? <Skeleton width={200} /> : "No data found"} {console.log(backgroundColor)} Information
-                <Button variant='warning' className="float-end" onClick={() => setEditModalInformation(bandData)}>Edit</Button>
+        <Card className="m-4 mb-4" style={{ border: `2px solid ${darkenColor(backgroundColor)}`, overflow: 'hidden' }}>
+            <Card.Header className="h3" style={{ backgroundColor: backgroundColor, color: textColor, textShadow: '2px 2px 4px rgba(0, 0, 0, 0.6)', borderRadius: '0' }} >
+                {data ? data.title : isLoadingData ? <Skeleton width={200} /> : "No data found"} Information
+                <Button variant='warning' className="float-end" onClick={() => setEditModalInformation(data)}>Edit</Button>
             </Card.Header>
-            <Card.Body className='position-relative' style={{ backgroundColor: lightenHex(backgroundColor), color: textColor, textShadow: '2px 2px 4px rgba(0, 0, 0, 0.6)' }}>
+            <Card.Body className='position-relative' style={{ backgroundColor: lightenColor(backgroundColor), color: textColor, textShadow: '2px 2px 4px rgba(0, 0, 0, 0.6)' }}>
                 <div className="position-absolute top-0 end-0 p-3 height-100 width-auto object-fit-cover">
-                    {bandData ? <Image src={bandData.profile_picture} style={{ width: '100px', height: '100px', objectFit: 'cover' }} /> : isLoadingData ? <Skeleton width={100} height={100} /> : "No data found"}
+                    {data ? <Image src={data.profile_picture} style={{ width: '100px', height: '100px', objectFit: 'cover' }} /> : isLoadingData ? <Skeleton width={100} height={100} /> : "No data found"}
                 </div>
-                { bandData.fields && bandData.fields.length > 0 && bandData.fields.map((field, index) => (
-                    <CustomCardText key={index} field={field} isLoadingData={isLoadingData} />
+                { data.fields && data.fields.length > 0 && data.fields.map((field, index) => (
+                    <CustomCardField key={index} field={field} isLoadingData={isLoadingData} />
                 ))}
                 { 
                     // Instruments 
@@ -215,10 +212,12 @@ const Profile = () => {
                     }
                 }}
             />
-            <ShowUserProfile setEditModalInformation={setEditModalInformation} isLoadingData={isLoadingData} userData={{
+            <ShowEntityProfile setEditModalInformation={setEditModalInformation} isLoadingData={isLoadingData} data={{
                     context: "user",
+                    title: "Your ",
                     id: userData?.iduser,
                     profile_picture: userData?.profile_picture,
+                    color_code: "#c8dcf0",
                     fields: [
                         { type: 'text', name: 'name', title: 'Name', value: userData?.name },
                         { type: 'email', name: 'email', title: 'Email Address', value: userData?.email, disabled: true },
@@ -228,18 +227,17 @@ const Profile = () => {
             />
             {userData && userData.bands && userData.bands.length > 0 ? (
                 userData.bands.map((band, index) => (
-                    <ShowBandProfile key={index} setEditModalInformation={setEditModalInformation} isLoadingData={isLoadingData} bandData={{
+                    <ShowEntityProfile key={index} setEditModalInformation={setEditModalInformation} isLoadingData={isLoadingData} data={{
                         context: "band",
+                        title: band.name.charAt(0).toUpperCase() + band.name.slice(1),
                         id: band.idband,
                         profile_picture: band.profile_picture,
-                        name: band.name,
                         color_code: band.color_code,
                         fields: [
                             { type: 'text', name: 'name', title: 'Name', value: band.name },
                             { type: 'email', name: 'email', title: 'Email Address', value: band.email, disabled: true },
                             { type: 'text', name: 'location', title: 'Location', value: band.location },
-                            { type: 'text', name: 'nif', title: 'NIF', value: band.nif },
-                            { type: 'text', name: 'color_code', title: 'Color Code', value: band.color_code, max_length: 7, pattern: /^#[0-9A-Fa-f]{6}$/ }
+                            { type: 'color', name: 'color_code', title: 'Color Code', value: band.color_code, max_length: 7, pattern: /^#[0-9A-Fa-f]{6}$/ }
                         ]
                     }} />
                 ))
