@@ -28,7 +28,7 @@ const MainNavbar = props => {
             body: JSON.stringify({
                 email: user.email,
                 name: user.name,
-                profile_photo: user.picture
+                profile_picture: user.picture
             })
         })
 
@@ -37,7 +37,7 @@ const MainNavbar = props => {
             let parsedData = {
                 email: user.email,
                 name: user.name,
-                profile_photo: user.picture,
+                profile_picture: user.picture,
                 iduser: data.iduser
             }
             localStorage.setItem("user", JSON.stringify(parsedData));
@@ -79,7 +79,7 @@ const MainNavbar = props => {
                             title={
                                 <span style={{ height: '40px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                                     <Image
-                                        src={userData.profile_photo}
+                                        src={userData.profile_picture}
                                         roundedCircle
                                         width={30}
                                         height={30}
