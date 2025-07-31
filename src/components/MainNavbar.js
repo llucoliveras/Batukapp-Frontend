@@ -1,12 +1,9 @@
-import Container from 'react-bootstrap/Container';
-import Nav from 'react-bootstrap/Nav';
-import Navbar from 'react-bootstrap/Navbar';
-import NavDropdown from 'react-bootstrap/NavDropdown';
+import { Container, Nav, Navbar, NavDropdown, Image } from 'react-bootstrap';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
 import { useState, useEffect } from 'react';
-import Image from 'react-bootstrap/Image';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 
 const MainNavbar = props => {
     const [userData, setUserData] = useState(null);
