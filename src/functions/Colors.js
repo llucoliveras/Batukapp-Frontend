@@ -1,14 +1,19 @@
 const AMOUNT = 0.3;
 
-export const lightenColor = (hex, amount = AMOUNT) => {
+export const lightenColor = (color, amount = AMOUNT) => {
     // Remove "#" if present
-    hex = hex.replace(/^#/, '');
+    color = color.replace(/^#/, '');
 
     // Parse the R, G, B components
-    let r = parseInt(hex.substring(0, 2), 16);
-    let g = parseInt(hex.substring(2, 4), 16);
-    let b = parseInt(hex.substring(4, 6), 16);
-    let a = hex.length > 6 ? parseInt(hex.substring(6, 8), 16) : 255;
+    let r = parseInt(color.substring(0, 2), 16);
+    let g = parseInt(color.substring(2, 4), 16);
+    let b = parseInt(color.substring(4, 6), 16);
+
+    // Parse alpha if present (optional)
+    let a = 0; // default fully transparent
+    if (color.length === 8) {
+        a = parseInt(color.substring(6, 8), 16);
+    }
 
     // Lighten each component toward 255
     r = Math.round(r + (255 - r) * amount);
@@ -51,14 +56,28 @@ export const getTextColorForBackground = (hex) => {
     // Remove "#" if present
     hex = hex.replace(/^#/, '');
 
-    // Convert to RGB
+    // Parse RGB
     const r = parseInt(hex.substr(0, 2), 16);
     const g = parseInt(hex.substr(2, 2), 16);
     const b = parseInt(hex.substr(4, 2), 16);
 
-    // Calculate relative luminance (formula from W3C)
-    const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+    // Parse alpha if present (assume 2 hex digits at the end)
+    let a = 255; // default opaque
+    if (hex.length === 8) {
+        a = parseInt(hex.substr(6, 2), 16);
+    }
 
-    // Return black or white depending on luminance
+    // Normalize alpha to 0-1
+    const alpha = a / 255;
+
+    // Background assumed white (255, 255, 255)
+    const rBlend = Math.round(alpha * r + (1 - alpha) * 255);
+    const gBlend = Math.round(alpha * g + (1 - alpha) * 255);
+    const bBlend = Math.round(alpha * b + (1 - alpha) * 255);
+
+    // Calculate luminance with blended color
+    const luminance = 0.299 * rBlend + 0.587 * gBlend + 0.114 * bBlend;
+
+    // Return black or white text color depending on luminance threshold
     return luminance > 186 ? '#212529' : '#F8F9FA';
-}
+};

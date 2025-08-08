@@ -1,7 +1,10 @@
-import { Button, Card, FloatingLabel, Form, Image, Modal, Toast, ToastContainer } from 'react-bootstrap';
-import { Fragment, useCallback, useEffect, useState } from 'react';
-import Skeleton from 'react-loading-skeleton';
 import { lightenColor, darkenColor, getTextColorForBackground } from '../functions/Colors';
+import { Badge, Button, Card, FloatingLabel, Form, Image, Modal } from 'react-bootstrap';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { Fragment, useCallback, useEffect, useState } from 'react';
+import { MdDeleteForever } from "react-icons/md";
+import Skeleton from 'react-loading-skeleton';
+import { IconContext } from 'react-icons';
 
 const CustomCardField = ({ field, isLoadingData }) => (field.type === 'color'
     ? (
@@ -29,42 +32,87 @@ const CustomCardField = ({ field, isLoadingData }) => (field.type === 'color'
     )
 );
 
-const EditProfileModal = ({ show, editModalInformation, handleClose, onSave }) => {
+const EditModal = ({ show, editModalInformation, handleClose, allInstruments, rolesTypes, onSave }) => {
     const [editableData, setEditableData] = useState([]);
+    const [editableInstruments, setEditableInstruments] = useState([]);
+    const [editableUsers, setEditableUsers] = useState([]);
     const [isValidData, setIsValidData] = useState(false);
+    const [modalSize, setModalSize] = useState('md');
+    const [context, setContext] = useState('user');
+    const [instrumentToAdd, setInstrumentToAdd] = useState({});
+
+    const availableInstruments = allInstruments.filter(
+        instr => !editableInstruments.some(e => e.idinstrument === instr.idinstrument)
+    );
 
     useEffect(() => {
         if (editModalInformation?.fields) {
             setEditableData(editModalInformation.fields);
         }
+        if (editModalInformation?.instruments) {
+            setEditableInstruments(editModalInformation.instruments);
+        }
+        if (editModalInformation?.modal_size) {
+            setModalSize(editModalInformation.modal_size);
+        }
+        if (editModalInformation?.context) {
+            setContext(editModalInformation.context);
+        }
+        if (editModalInformation?.users) {
+            setEditableUsers(editModalInformation.users);
+        }
     }, [editModalInformation, show]);
 
-    const validateData = useCallback(() => {
-        return editModalInformation.fields &&
-            editableData.every((field, i) => {
-                const original = editModalInformation.fields[i];
-                const matchesValue = field.value === original?.value;
-                const withinLength = !field.max_length || field.value.length <= field.max_length;
-                const patternValid =
-                    !field.pattern ||
-                    (field.pattern instanceof RegExp && field.pattern.test(field.value));
+    console.log(editableInstruments)
 
-                return matchesValue && withinLength && patternValid;
-            });
-    }, [editableData, editModalInformation.fields]);
+    const validateData = useCallback(() => {
+        const fieldsValid = editModalInformation.fields && editableData.every((field, i) => {
+            const original = editModalInformation.fields[i];
+            const matchesValue = field.value === original?.value;
+            const withinLength = !field.max_length || field.value.length <= field.max_length;
+            const patternValid =
+                !field.pattern ||
+                (field.pattern instanceof RegExp && field.pattern.test(field.value));
+
+            return matchesValue && withinLength && patternValid;
+        })
+
+        const instrumentsValid = editableInstruments && editableInstruments.every(instrument => {
+            const original = editModalInformation?.instruments?.find(inst => inst.idinstrument === instrument.idinstrument);
+            if (!original) return false;
+
+            const matchesQuantity = instrument.quantity === original?.quantity;
+            const matchesMinFormation = instrument.min_formation === original?.min_formation;
+
+            return matchesQuantity && matchesMinFormation
+        });
+
+        const noDeletedInstruments = editModalInformation?.instruments?.every(original => {
+            return editableInstruments.some(
+                instrument => instrument.idinstrument === original.idinstrument
+            );
+        });
+
+        return fieldsValid && instrumentsValid && noDeletedInstruments;
+    }, [editableData, editableInstruments, editModalInformation]);
 
     useEffect(() => {
         setIsValidData(validateData());
     }, [validateData]);
 
     const handleSave = async () => {
-        const context = editModalInformation?.context;
         const id = editModalInformation?.id;
 
         const payload = {};
         editableData.forEach(field => {
             payload[field.name] = field.value;
         });
+        payload.instruments = editableInstruments.map(inst => ({
+            idinstrument: inst.idinstrument,
+            name: inst.name,
+            quantity: inst.quantity,
+            min_formation: inst.min_formation
+        }));
 
         let url = '';
         if (context === 'user') {
@@ -89,13 +137,65 @@ const EditProfileModal = ({ show, editModalInformation, handleClose, onSave }) =
         }
     };
 
+    const updateInstrument = (index, field, newValue) => {
+        const updated = [...editableInstruments];
+        updated[index] = {
+            ...updated[index],
+            [field]: Math.max(0, newValue), // prevents negative values
+        };
+
+        setEditableInstruments(updated);
+    };
+
+    const removeInstrument = (index) => {
+        const updated = [...editableInstruments]; // or your state variable
+        updated.splice(index, 1);
+        setEditableInstruments(updated);
+    };
+
+    const handleAddInstrument = () => {
+        if (!instrumentToAdd) return;
+        const instrument = allInstruments.find(i => i.idinstrument === parseInt(instrumentToAdd));
+        if (instrument) {
+            setEditableInstruments(prev => [
+                ...prev,
+                {
+                    ...instrument,
+                    quantity: 0,
+                    min_formation: 0
+                }
+            ]);
+            setInstrumentToAdd({});
+        }
+    };
+
+    const copyInstrumentToUser = (instrumentList, userList, source, destination) => {
+        const instrumentId = parseInt(source.draggableId);
+        const instrument = instrumentList.find(inst => inst.idinstrument === instrumentId);
+
+        const userIndex = parseInt(destination.droppableId.replace("user-", ""));
+        const user = userList[userIndex];
+
+        // Avoid duplicates
+        if (user.instruments.some(inst => inst.idinstrument === instrument.idinstrument)) {
+            return userList;
+        }
+
+        const updatedUserList = [...userList];
+        const updatedUser = { ...user };
+        updatedUser.instruments = [...(updatedUser.instruments || []), { ...instrument }];
+        updatedUserList[userIndex] = updatedUser;
+
+        return updatedUserList;
+    };
+
     return(
-        <Modal show={show} onHide={handleClose}>
+        <Modal show={show} onHide={handleClose} size={modalSize} centered>
             <Modal.Header closeButton>
                 <Modal.Title>Edit User Information</Modal.Title>
             </Modal.Header>
             <Modal.Body>
-                {editableData.map((field, index) => (
+                {editableData && editableData.length > 0 && editableData.map((field, index) => (
                     <FloatingLabel
                         key={field.title}
                         label={field.title.charAt(0).toUpperCase() + field.title.slice(1)}
@@ -121,6 +221,312 @@ const EditProfileModal = ({ show, editModalInformation, handleClose, onSave }) =
                         />
                     </FloatingLabel>
                 ))}
+                {context === "band" && editableInstruments && (
+                    <div className="mt-3">
+                        <h5>Instruments</h5>
+                        <div className="d-flex flex-wrap gap-2">
+                            {Array.isArray(editableInstruments) && editableInstruments.length > 0 && editableInstruments.map((instrument, index) => (
+                                <div
+                                    key={index}
+                                    className="border rounded p-2"
+                                    style={{ flex: "0 0 250px" }}
+                                >
+                                    <div className="d-flex justify-content-center align-items-center mb-1 gap-2">
+                                        <h6 className="mb-0">{instrument.name}</h6>
+                                        <Button
+                                            variant="danger"
+                                            size="sm"
+                                            onClick={() => removeInstrument(index)}
+                                            className="py-2 px-2 d-flex align-items-center justify-content-center"
+                                        >
+                                            <IconContext.Provider value={{ color: "white", size: "1.0rem" }}>
+                                                <MdDeleteForever />
+                                            </IconContext.Provider>
+                                        </Button>
+                                    </div>
+
+
+                                    <div className="d-flex flex-column gap-2">
+                                        <div className="d-flex align-items-center gap-2 flex-wrap">
+                                            <span>🔢 Quantity:</span>
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={() => updateInstrument(index, 'quantity', instrument.quantity - 1)}
+                                                disabled={instrument.quantity <= 0}
+                                            >–</Button>
+                                            <span>{instrument.quantity}</span>
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={() => updateInstrument(index, 'quantity', instrument.quantity + 1)}
+                                            >+</Button>
+                                        </div>
+
+                                        <div className="d-flex align-items-center gap-2 flex-wrap">
+                                            <span>👥 Min. Formation:</span>
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={() => updateInstrument(index, 'min_formation', instrument.min_formation - 1)}
+                                                disabled={instrument.min_formation <= 0}
+                                            >–</Button>
+                                            <span>{instrument.min_formation}</span>
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={() => updateInstrument(index, 'min_formation', instrument.min_formation + 1)}
+                                            >+</Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+
+                            {/* Add Instrument Row */}
+                            <div className="border rounded p-3 d-flex flex-column" style={{ flex: "0 0 250px", boxSizing: 'border-box', gap: '12px' }}>
+                                <h6 className="mb-0 text-center">
+                                    Add instrument
+                                </h6>
+
+                                <Form.Select
+                                    value={instrumentToAdd}
+                                    onChange={(e) => setInstrumentToAdd(e.target.value)}
+                                >
+                                    <option value={{}} disabled hidden>
+                                        Select an instrument
+                                    </option>
+                                    {availableInstruments.map(instr => (
+                                        <option key={instr.idinstrument} value={instr.idinstrument}>
+                                            {instr.name}
+                                        </option>
+                                    ))}
+                                </Form.Select>
+
+                                <Button
+                                    variant="primary"
+                                    onClick={handleAddInstrument}
+                                    disabled={!instrumentToAdd}
+                                    className='w-100'
+                                >
+                                    Add Instrument
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {context === "band" && editableUsers && (
+                    <div className="mt-3">
+                        <h5>Users</h5>
+
+                        {/* ONE DragDropContext for everything */}
+                        <DragDropContext
+                            onDragEnd={(result) => {
+                                const { source, destination, draggableId } = result;
+                                
+                                if (!destination) return;
+
+                                // Dropping into a user’s instrument list
+                                if (destination.droppableId.startsWith("user-")) {
+                                    const userIndex = parseInt(destination.droppableId.replace("user-", ""));
+                                    setEditableUsers((prev) => {
+                                        const updated = [...prev];
+                                        const user = updated[userIndex];
+                                        const draggedInstrument = editableInstruments.find(inst  => inst.idinstrument == draggableId)
+
+                                        if (!user.instruments.includes(draggedInstrument)) {
+                                            user.instruments = [...user.instruments, draggedInstrument];
+                                        }
+                                        return updated;
+                                    });
+                                }
+                            }}
+                        >
+                            <div className="d-flex gap-3" style={{ maxWidth: "100%", overflow: "hidden" }}>
+                                {/* LEFT: Users list */}
+                                <div className="flex-grow-1 d-flex flex-column gap-1" style={{ minWidth: 0 }}>
+                                    {editableUsers.map((user, index) => (
+                                        <div
+                                            key={index}
+                                            className="border rounded py-1 px-2 d-flex align-items-center gap-3 flex-wrap"
+                                            style={{ boxSizing: "border-box" }}
+                                        >
+                                            {/* User Name */}
+                                            <div
+                                                style={{
+                                                    flex: "0 0 7rem",
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                    whiteSpace: "nowrap"
+                                                }}
+                                                title={user.name}
+                                            >
+                                                <h6
+                                                className="mb-0"
+                                                style={{
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                    whiteSpace: "nowrap",
+                                                    display: "inline-block",
+                                                    maxWidth: "100%"
+                                                }}
+                                                >
+                                                    {user.name}
+                                                </h6>
+                                            </div>
+
+                                            {/* Role Select */}
+                                            <Form.Select
+                                                value={user.role || ""}
+                                                onChange={(e) => {
+                                                    const newUsers = [...editableUsers];
+                                                    newUsers[index] = { ...user, role: e.target.value };
+                                                    setEditableUsers(newUsers);
+                                                }}
+                                                style={{ flex: "0 0 8rem" }}
+                                            >
+                                                {rolesTypes &&
+                                                    rolesTypes.map((role, idx) => (
+                                                        <option key={idx} value={role}>
+                                                        {role}
+                                                        </option>
+                                                    ))
+                                                }
+                                            </Form.Select>
+
+                                            {/* Instrument Drop Area */}
+                                            <Droppable droppableId={`user-${index}`} direction="horizontal">
+                                                {(provided) => (
+                                                    <div
+                                                    className="border rounded p-1"
+                                                    style={{
+                                                        minHeight: "42px",
+                                                        flex: "1 1 0",
+                                                        maxWidth: "100%",
+                                                        display: "flex",
+                                                        gap: "0.5rem",
+                                                        alignItems: "center",
+                                                        justifyContent: user.instruments?.length ? "flex-start" : "center",
+                                                        backgroundColor: "#f8f9fa",
+                                                        overflowX: "auto",
+                                                        whiteSpace: "nowrap"
+                                                    }}
+                                                    ref={provided.innerRef}
+                                                    {...provided.droppableProps}
+                                                    >
+                                                    {user?.instruments?.length > 0 ? (
+                                                        user.instruments.map((instrument, i) => {
+                                                        const stillExists = editableInstruments.some(
+                                                            (inst) => inst.idinstrument === instrument.idinstrument
+                                                        );
+
+                                                        return (
+                                                            <Draggable
+                                                            key={instrument.idinstrument}
+                                                            draggableId={`user-${index}-${instrument.idinstrument}`}
+                                                            index={i}
+                                                            >
+                                                            {(provided) => (
+                                                                <span
+                                                                className="px-2 py-1 border rounded bg-light d-flex align-items-center gap-1"
+                                                                style={{
+                                                                    display: "inline-flex",
+                                                                    whiteSpace: "nowrap",
+                                                                    ...provided.draggableProps.style
+                                                                }}
+                                                                ref={provided.innerRef}
+                                                                {...provided.draggableProps}
+                                                                {...provided.dragHandleProps}
+                                                                >
+                                                                {instrument.name}
+                                                                {!stillExists && (
+                                                                    <span
+                                                                    style={{
+                                                                        color: "red",
+                                                                        fontSize: "0.9rem",
+                                                                        fontWeight: "bold"
+                                                                    }}
+                                                                    title="This instrument is no longer in the band and will be removed on save"
+                                                                    >
+                                                                    ⚠
+                                                                    </span>
+                                                                )}
+                                                                </span>
+                                                            )}
+                                                            </Draggable>
+                                                        );
+                                                        })
+                                                    ) : (
+                                                        <span className="text-muted">Drop Instruments Here</span>
+                                                    )}
+                                                    {provided.placeholder}
+                                                    </div>
+                                                )}
+                                            </Droppable>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* RIGHT: Band Instruments */}
+                                <Droppable droppableId="instruments" isDropDisabled={true}>
+                                {(provided) => (
+                                    <div
+                                    ref={provided.innerRef}
+                                    {...provided.droppableProps}
+                                    className="border rounded p-2 d-flex flex-column gap-2"
+                                    style={{ minWidth: "10rem", position: "relative" }} // 👈 position relative
+                                    >
+                                    {editableInstruments.map((inst, index) => (
+                                        <Draggable
+                                        key={inst.idinstrument}
+                                        draggableId={inst.idinstrument.toString()}
+                                        index={index}
+                                        >
+                                        {(provided, snapshot) => (
+                                            <>
+                                            {/* The real draggable (hidden while dragging) */}
+                                            <div
+                                                ref={provided.innerRef}
+                                                {...provided.draggableProps}
+                                                {...provided.dragHandleProps}
+                                                className="border rounded px-2 py-1 bg-light"
+                                                style={{
+                                                ...provided.draggableProps.style,
+                                                cursor: "grab",
+                                                opacity: snapshot.isDragging ? 0 : 1, // Hide when dragging
+                                                }}
+                                            >
+                                                {inst.name}
+                                            </div>
+
+                                            {/* Ghost copy always stays in place visually */}
+                                            {snapshot.isDragging && (
+                                                <div
+                                                className="border rounded px-2 py-1 bg-light"
+                                                style={{
+                                                    position: "absolute",
+                                                    top: index * 42, // approximate row height
+                                                    left: 0,
+                                                    width: "100%",
+                                                    pointerEvents: "none",
+                                                    userSelect: "none",
+                                                }}
+                                                >
+                                                {inst.name}
+                                                </div>
+                                            )}
+                                            </>
+                                        )}
+                                        </Draggable>
+                                    ))}
+                                    {provided.placeholder}
+                                    </div>
+                                )}
+                                </Droppable>
+
+                            </div>
+                        </DragDropContext>
+                    </div>
+                )}
             </Modal.Body>
             <Modal.Footer>
                 <Button variant="secondary" onClick={handleClose}> Close </Button>
@@ -131,9 +537,9 @@ const EditProfileModal = ({ show, editModalInformation, handleClose, onSave }) =
 }
 
 const ShowEntityProfile = ({ data, setEditModalInformation, isLoadingData }) => {
-    const transparencyPercentage = data.transparency || 70;  // example
+    const transparencyPercentage = 70;
     const hexTransparency = Math.round((transparencyPercentage / 100) * 255).toString(16).padStart(2, '0');
-    const backgroundColor = (data?.color_code || '#FFFFFF') + hexTransparency;
+    const backgroundColor = lightenColor((data?.color_code || '#FFFFFF') + hexTransparency);
     const textColor = getTextColorForBackground(backgroundColor);
 
     return (
@@ -142,15 +548,53 @@ const ShowEntityProfile = ({ data, setEditModalInformation, isLoadingData }) => 
                 {data ? data.title : isLoadingData ? <Skeleton width={200} /> : "No data found"} Information
                 <Button variant='warning' className="float-end" onClick={() => setEditModalInformation(data)}>Edit</Button>
             </Card.Header>
-            <Card.Body className='position-relative' style={{ backgroundColor: lightenColor(backgroundColor), color: textColor, textShadow: '2px 2px 4px rgba(0, 0, 0, 0.6)' }}>
+            <Card.Body className='position-relative' style={{ backgroundColor: lightenColor(backgroundColor), color: textColor, textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)' }}>
                 <div className="position-absolute top-0 end-0 p-3 height-100 width-auto object-fit-cover">
                     {data ? <Image src={data.profile_picture} style={{ width: '100px', height: '100px', objectFit: 'cover' }} /> : isLoadingData ? <Skeleton width={100} height={100} /> : "No data found"}
                 </div>
                 { data.fields && data.fields.length > 0 && data.fields.map((field, index) => (
                     <CustomCardField key={index} field={field} isLoadingData={isLoadingData} />
                 ))}
-                { 
-                    // Instruments 
+                {data.instruments && data.instruments.length > 0 &&
+                    <div className="mt-3">
+                        <h5>Instruments</h5>
+                        <div
+                            style={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '0.5rem',
+                            }}
+                        >
+                            {data.instruments.map((instrument, index) => (
+                                <div
+                                    key={index}
+                                    className="d-flex align-items-center gap-1 px-2 py-2"
+                                    style={{
+                                        backgroundColor: darkenColor(backgroundColor, 0.05),
+                                        borderRadius: '8px',
+                                        border: `1px solid ${darkenColor(backgroundColor)}`,
+                                        padding: '8px',
+                                        whiteSpace: 'nowrap', // prevent wrapping inside the box
+                                    }}
+                                >
+                                    <span style={{ whiteSpace: 'nowrap' }}>
+                                        <strong>{instrument.name.charAt(0).toUpperCase() + instrument.name.slice(1)}</strong>
+                                    </span>
+                                    <Badge
+                                        bg='undefined'
+                                        style={{
+                                            backgroundColor: darkenColor(backgroundColor, 0.2),
+                                            color: textColor,
+                                        }}
+                                        pill
+                                        className="ms-1"
+                                    >
+                                        🔢 {instrument.quantity} : 👨‍👩‍👧‍👦 {instrument.min_formation}
+                                    </Badge>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 }
             </Card.Body>
         </Card>
@@ -159,9 +603,9 @@ const ShowEntityProfile = ({ data, setEditModalInformation, isLoadingData }) => 
 
 const Profile = () => {
     const [userData, setUserData] = useState(null);
+    const [allInstruments, setAllInstruments] = useState([])
+    const [roleTypes, setRoleTypes] = useState(null);
     const [editModalInformation, setEditModalInformation] = useState([]);
-    const [showToast, setShowToast] = useState(false);
-    const [toastMessage, setToastMessage] = useState('');
     const [isLoadingData, setIsLoadingData] = useState(true);
 
     useEffect(() => {
@@ -171,7 +615,7 @@ const Profile = () => {
 
     const getProfileData = async (iduser) => {
         try {
-            const response = await fetch(`http://localhost:4000/users/?iduser=${iduser}`, {
+            const responseUserData = await fetch(`http://localhost:4000/users/?iduser=${iduser}`, {
                 method: "GET",
                 headers: {
                     "Content-Type": "application/json"
@@ -179,9 +623,35 @@ const Profile = () => {
                 credentials: "include"
             })
 
-            const data = await response.json();
-            if (data && data.iduser) {
-                setUserData(data);
+            const userData = await responseUserData.json();
+            if (userData && userData.iduser) {
+                setUserData(userData);
+            }
+
+            const allInstrumentsData = await fetch(`http://localhost:4000/instruments`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                credentials: "include"
+            })
+
+            const instrumentsData = await allInstrumentsData.json();
+            if (instrumentsData && Array.isArray(instrumentsData) && instrumentsData[0].idinstrument) {
+                setAllInstruments(instrumentsData);
+            }
+
+            const allRoleTypes = await fetch('http://localhost:4000/bands/roles', {
+                method: 'GET',
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                credentials: "include"
+            })
+
+            const roleTypes = await allRoleTypes.json();
+            if (roleTypes) {
+                setRoleTypes(roleTypes)
             }
         } catch (error) {
             console.error("Error fetching user data:", error);
@@ -191,18 +661,12 @@ const Profile = () => {
 
     return (
         <Fragment>
-            <ToastContainer position="bottom-end" className="p-3">
-                <Toast bg="danger" onClose={() => setShowToast(false)} show={showToast} delay={5000} autohide>
-                    <Toast.Header>
-                        <strong className="me-auto">Save Failed</strong>
-                    </Toast.Header>
-                    <Toast.Body>{toastMessage}</Toast.Body>
-                </Toast>
-            </ToastContainer>
-            <EditProfileModal
+            <EditModal
                 show={editModalInformation.context && editModalInformation.id && editModalInformation.fields.length > 0}
                 editModalInformation={editModalInformation}
                 handleClose={() => setEditModalInformation([])}
+                allInstruments={allInstruments}
+                rolesTypes={roleTypes}
                 onSave={(updatedData, id) => {
                     const context = editModalInformation.context;
                     if (context === "user") {
@@ -218,6 +682,7 @@ const Profile = () => {
                     id: userData?.iduser,
                     profile_picture: userData?.profile_picture,
                     color_code: "#c8dcf0",
+                    modal_size: "md",
                     fields: [
                         { type: 'text', name: 'name', title: 'Name', value: userData?.name },
                         { type: 'email', name: 'email', title: 'Email Address', value: userData?.email, disabled: true },
@@ -233,12 +698,15 @@ const Profile = () => {
                         id: band.idband,
                         profile_picture: band.profile_picture,
                         color_code: band.color_code,
+                        modal_size: "lg",
                         fields: [
                             { type: 'text', name: 'name', title: 'Name', value: band.name },
                             { type: 'email', name: 'email', title: 'Email Address', value: band.email, disabled: true },
                             { type: 'text', name: 'location', title: 'Location', value: band.location },
                             { type: 'color', name: 'color_code', title: 'Color Code', value: band.color_code, max_length: 7, pattern: /^#[0-9A-Fa-f]{6}$/ }
-                        ]
+                        ],
+                        instruments: band.instruments || [],
+                        users: band.users || []
                     }} />
                 ))
             ) : (
