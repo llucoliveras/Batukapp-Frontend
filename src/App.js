@@ -1,8 +1,8 @@
 import MainNavbar from "./components/MainNavbar";
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Community from "./pages/Community";
-import Profile from "./pages/Profile";
+import { Community, Profile, Test } from "./pages/index";
+
 
 const App = () => {
 	return (
