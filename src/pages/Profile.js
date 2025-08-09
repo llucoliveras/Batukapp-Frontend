@@ -65,6 +65,7 @@ const EditModal = ({ show, editModalInformation, handleClose, allInstruments, ro
     }, [editModalInformation, show]);
 
     const validateData = useCallback(() => {
+        // Check for data fields changes
         const fieldsValid = editModalInformation.fields && editableData.every((field, i) => {
             const original = editModalInformation.fields[i];
             const matchesValue = field.value === original?.value;
@@ -76,36 +77,33 @@ const EditModal = ({ show, editModalInformation, handleClose, allInstruments, ro
             return matchesValue && withinLength && patternValid;
         })
 
-        const instrumentsValid = editableInstruments && editableInstruments.every(instrument => {
-            const original = editModalInformation?.instruments?.find(inst => inst.idinstrument === instrument.idinstrument);
-            if (!original) return false;
+        // Check for instruments changes
+        const instrumentsValid = editModalInformation?.instruments?.every(original => {
+            const edited = editableInstruments?.find(inst => inst.idinstrument === original.idinstrument);
+            if (!edited) return false; // Deleted instrument → fail
 
-            const matchesQuantity = instrument.quantity === original?.quantity;
-            const matchesMinFormation = instrument.min_formation === original?.min_formation;
+            const matchesQuantity = edited.quantity === original.quantity;
+            const matchesMinFormation = edited.min_formation === original.min_formation;
 
-            return matchesQuantity && matchesMinFormation
+            return matchesQuantity && matchesMinFormation;
         });
 
-        const noDeletedInstruments = editModalInformation?.instruments?.every(original => {
-            return editableInstruments.some(
-                instrument => instrument.idinstrument === original.idinstrument
-            );
-        });
-        const userInstrumentsValid = editableUsers && editableUsers.every(user => {
+        // Check for users changes
+        const usersValid = editableUsers && editableUsers.every(user => {
             const originalUser = editModalInformation?.users?.find(u => u.iduser === user.iduser);
             if (!originalUser) return false;
 
-            // Check same length
+            if (user.role !== originalUser.role) return false;
+
             if (user.instruments.length !== originalUser.instruments.length) return false;
 
-            // Check same instruments (same IDs, in any order)
-            const currentIds = user.instruments.map(inst => inst.idinstrument).sort();
-            const originalIds = originalUser.instruments.map(inst => inst.idinstrument).sort();
-
-            return currentIds.every((id, index) => id === originalIds[index]);
+            return user.instruments.every((inst, index) => {
+                const originalInst = originalUser.instruments[index];
+                return inst.idinstrument === originalInst.idinstrument;
+            });
         });
 
-        return fieldsValid && instrumentsValid && noDeletedInstruments && userInstrumentsValid;
+        return fieldsValid && instrumentsValid && usersValid;
     }, [editableData, editableInstruments, editModalInformation, editableUsers]);
 
     useEffect(() => {
@@ -320,103 +318,79 @@ const EditModal = ({ show, editModalInformation, handleClose, allInstruments, ro
                 {context === "band" && editableUsers && (
                     <div className="mt-3">
                         <h5>Users</h5>
-
-                        {/* ONE DragDropContext for everything */}
-                        <div
-                            onDragEnd={(result) => {
-                                const { source, destination, draggableId } = result;
-                                
-                                if (!destination) return;
-
-                                // Dropping into a user’s instrument list
-                                if (destination.droppableId.startsWith("user-")) {
-                                    const userIndex = parseInt(destination.droppableId.replace("user-", ""));
-                                    setEditableUsers((prev) => {
-                                        const updated = [...prev];
-                                        const user = updated[userIndex];
-                                        const draggedInstrument = editableInstruments.find(inst  => inst.idinstrument == draggableId)
-
-                                        if (!user.instruments.includes(draggedInstrument)) {
-                                            user.instruments = [...user.instruments, draggedInstrument];
-                                        }
-                                        return updated;
-                                    });
-                                }
-                            }}
-                        >
-                            <DragProvider>
-                                <div className="d-flex gap-3" style={{ maxWidth: "100%", overflow: "hidden" }}>
-                                    {/* LEFT: Users list */}
-                                    <div className="flex-grow-1 d-flex flex-column gap-1" style={{ minWidth: 0 }}>
-                                        {editableUsers.map((user, index) => (
+                        
+                        <DragProvider>
+                            <div className="d-flex gap-3" style={{ maxWidth: "100%", overflow: "hidden" }}>
+                                {/* LEFT: Users list */}
+                                <div className="flex-grow-1 d-flex flex-column gap-1" style={{ minWidth: 0 }}>
+                                    {editableUsers.map((user, index) => (
+                                        <div
+                                            key={index}
+                                            className="border rounded py-1 px-2 d-flex align-items-center gap-3 flex-wrap"
+                                            style={{ boxSizing: "border-box" }}
+                                        >
+                                            {/* User Name */}
                                             <div
-                                                key={index}
-                                                className="border rounded py-1 px-2 d-flex align-items-center gap-3 flex-wrap"
-                                                style={{ boxSizing: "border-box" }}
+                                                style={{
+                                                    flex: "0 0 7rem",
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                    whiteSpace: "nowrap"
+                                                }}
+                                                title={user.name}
                                             >
-                                                {/* User Name */}
-                                                <div
-                                                    style={{
-                                                        flex: "0 0 7rem",
-                                                        overflow: "hidden",
-                                                        textOverflow: "ellipsis",
-                                                        whiteSpace: "nowrap"
-                                                    }}
-                                                    title={user.name}
+                                                <h6
+                                                className="mb-0"
+                                                style={{
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                    whiteSpace: "nowrap",
+                                                    display: "inline-block",
+                                                    maxWidth: "100%"
+                                                }}
                                                 >
-                                                    <h6
-                                                    className="mb-0"
-                                                    style={{
-                                                        overflow: "hidden",
-                                                        textOverflow: "ellipsis",
-                                                        whiteSpace: "nowrap",
-                                                        display: "inline-block",
-                                                        maxWidth: "100%"
-                                                    }}
-                                                    >
-                                                        {user.iduser}
-                                                    </h6>
-                                                </div>
-
-                                                {/* Role Select */}
-                                                <Form.Select
-                                                    value={user.role || ""}
-                                                    onChange={(e) => {
-                                                        const newUsers = [...editableUsers];
-                                                        newUsers[index] = { ...user, role: e.target.value };
-                                                        setEditableUsers(newUsers);
-                                                    }}
-                                                    style={{ flex: "0 0 8rem" }}
-                                                    >
-                                                    {rolesTypes &&
-                                                        rolesTypes.map((role, idx) => (
-                                                            <option key={idx} value={role}>
-                                                            {role}
-                                                            </option>
-                                                        ))
-                                                    }
-                                                </Form.Select>
-
-                                                {/* Instrument Drop Area */}
-                                                <DragNDropList
-                                                    key={user.iduser}
-                                                    listId={`user-${user.iduser}`}
-                                                    listItems={user.instruments.map(inst => { return { ...inst, id: inst.idinstrument } })}
-                                                    onChange={(newInstruments) => updateUserInstruments(index, newInstruments)}
-                                                />
+                                                    {user.iduser}
+                                                </h6>
                                             </div>
-                                        ))}
-                                    </div>
 
-                                    {/* RIGHT: Band Instruments */}
-                                    <DragNDropList
-                                        listId={"instruments"}
-                                        listItems={editableInstruments.map(inst => { return { ...inst, id: inst.idinstrument } })}
-                                        isDroppable={false}
-                                    />
+                                            {/* Role Select */}
+                                            <Form.Select
+                                                value={user.role || ""}
+                                                onChange={(e) => {
+                                                    const newUsers = [...editableUsers];
+                                                    newUsers[index] = { ...user, role: e.target.value };
+                                                    setEditableUsers(newUsers);
+                                                }}
+                                                style={{ flex: "0 0 8rem" }}
+                                                >
+                                                {rolesTypes &&
+                                                    rolesTypes.map((role, idx) => (
+                                                        <option key={idx} value={role}>
+                                                        {role}
+                                                        </option>
+                                                    ))
+                                                }
+                                            </Form.Select>
+
+                                            {/* Instrument Drop Area */}
+                                            <DragNDropList
+                                                key={user.iduser}
+                                                listId={`user-${user.iduser}`}
+                                                listItems={user.instruments.map(inst => { return { ...inst, id: inst.idinstrument } })}
+                                                onChange={(newInstruments) => updateUserInstruments(index, newInstruments)}
+                                            />
+                                        </div>
+                                    ))}
                                 </div>
-                            </DragProvider>
-                        </div>
+
+                                {/* RIGHT: Band Instruments */}
+                                <DragNDropList
+                                    listId={"instruments"}
+                                    listItems={editableInstruments.map(inst => { return { ...inst, id: inst.idinstrument } })}
+                                    isDroppable={false}
+                                />
+                            </div>
+                        </DragProvider>
                     </div>
                 )}
             </Modal.Body>
