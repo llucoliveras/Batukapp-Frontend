@@ -19,6 +19,7 @@ const DragNDropList = ({listItems, listId, onChange, isDroppable = true}) => {
 
     useEffect(() => {
         if (
+            onChange &&
             removeFromListSignal &&
             removeFromListSignal.listId === listId &&
             listItems.some(item => item.id === removeFromListSignal.itemId)
@@ -141,7 +142,7 @@ const DragNDropList = ({listItems, listId, onChange, isDroppable = true}) => {
             onDragOver={handleDragOverEmpty}
         >
             {listItems.map((item, index) => {
-                const showPlaceholder = dragOverTargetListId === listId && dragOverIndex === index && ![draggingIndex, draggingIndex + 1].includes(dragOverIndex);
+                const showPlaceholder = dragOverTargetListId === listId && dragOverIndex === index && (!draggingIndex || ![draggingIndex, draggingIndex + 1].includes(dragOverIndex));
 
                 return (
                     <Fragment key={`${listId}-id-${item.id}`}>

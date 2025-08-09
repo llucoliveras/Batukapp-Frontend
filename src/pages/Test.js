@@ -33,18 +33,12 @@ const Test = () => {
     return (
         <DragProvider>
             <div>
-                {/* <div>
-                    {instruments.map((inst) => (
-                        <div
-                            key={inst.id}
-                            draggable
-                            onDragStart={() => handleOnDrag(inst)}
-                            style={{ padding: "4px", border: "1px solid gray", margin: "2px", cursor: "grab" }}
-                        >
-                            {inst.name}
-                        </div>
-                    ))}
-                </div> */}
+                <DragNDropList
+                    key={"instruments"}
+                    listId={"instruments"}
+                    listItems={instruments}
+                    isDroppable={false}
+                />
 
                 {editableUsers.map((user, index) => 
                     <DragNDropList
