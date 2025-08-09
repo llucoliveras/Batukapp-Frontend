@@ -125,7 +125,7 @@ const DragNDropList = ({listItems, listId, onChange, isDroppable = true}) => {
         flex: "1 1 0",
         flexDirection: "row",
         gap: "0.5rem",
-        justifyContent: listItems?.length ? "flex-start" : "center",
+        justifyContent: listItems?.length ? "flex-start" : dragOverTargetListId !== listId ? "center" : "flex-start",
         maxWidth: "100%",
         minHeight: "3rem",
         overflowX: "auto",
@@ -157,7 +157,7 @@ const DragNDropList = ({listItems, listId, onChange, isDroppable = true}) => {
             onDrop={handleOnDrop}
             onDragOver={handleDragOverEmpty}
         >
-            {isDroppable && listItems.length <= 0 && <span style={{color: "gray"}}>Drop items here</span>}
+            {isDroppable && listItems.length <= 0 && dragOverTargetListId !== listId && <span style={{color: "gray"}}>Drop items here</span>}
             {listItems.map((item, index) => {
                 const showPlaceholder = dragOverTargetListId === listId && dragOverIndex === index && (listId !== draggingSourceListId || draggingIndex === undefined || draggingIndex === null || ![draggingIndex, draggingIndex + 1].includes(dragOverIndex));
 
