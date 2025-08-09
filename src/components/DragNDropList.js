@@ -3,20 +3,27 @@ import { useDragContext } from "./DragContext";
 
 const DragNDropList = ({listItems, listId, onChange, isDroppable = true}) => {
     const {
+        // Data of the dragged element
         draggingData,
         setDraggingData,
+        // Index of the position of dragged element in the original list
         draggingIndex,
         setDraggingIndex,
+        // Index of the element below the dragged one while dragging
         dragOverIndex,
         setDragOverIndex,
+        // Id of the list below the dragged element while dragging
         dragOverTargetListId,
         setDragOverTargetListId,
+        // Id of the original list the dragged element comes from
         draggingSourceListId,
         setDraggingSourceListId,
+        // Signal to make a list now it need to delete an element from itself
         removeFromListSignal,
         setRemoveFromListSignal,
     } = useDragContext();
 
+    // Detect a removeFromListSignal exists and if its related to this listId delete the element that should be deleted
     useEffect(() => {
         if (
             onChange &&
@@ -30,7 +37,7 @@ const DragNDropList = ({listItems, listId, onChange, isDroppable = true}) => {
         }
     }, [removeFromListSignal, listId, listItems, onChange, setRemoveFromListSignal]);
 
-    // Drag
+    // When starting a drag save the data necessary
     const handleOnDrag = (data, index) => {
         setDraggingData(data ?? null);
         setDraggingIndex(index ?? null);
@@ -38,7 +45,7 @@ const DragNDropList = ({listItems, listId, onChange, isDroppable = true}) => {
         setDragOverIndex(null);
     };
 
-
+    // When hovering over other element save the data from those elements
     const handleDragOver = (e, index) => {
         e.preventDefault();
         if (dragOverIndex !== index || dragOverTargetListId !== listId) {
@@ -47,10 +54,9 @@ const DragNDropList = ({listItems, listId, onChange, isDroppable = true}) => {
         }
     };
 
-    // Drag over empty space after last item
+    // When hovering over empty space set the data to the last position in the list
     const handleDragOverEmpty = (e) => {
         e.preventDefault();
-        // Only update dragOverIndex if hovering *directly* over the container div (not its children)
         if (e.target === e.currentTarget) {
             if (dragOverIndex !== listItems.length || dragOverTargetListId !== listId) {
                 setDragOverIndex(listItems.length);
@@ -59,9 +65,9 @@ const DragNDropList = ({listItems, listId, onChange, isDroppable = true}) => {
         }
     };
 
-    // Drop
+    // When dropping and element handle the logic depending on the list type and where it was dropped
     const handleOnDrop = () => {
-        if (!isDroppable) return;
+        if (!isDroppable) return; // For copy list, not reordable
 
         if (draggingData) {
             // Reorder within the same list
@@ -81,17 +87,16 @@ const DragNDropList = ({listItems, listId, onChange, isDroppable = true}) => {
                     const updated = [...listItems];
                     updated.splice(insertIndex, 0, draggingData);
                     onChange(updated);
-                }
 
-                // 🔥 Tell the source list to remove the item
-                setRemoveFromListSignal({
-                    listId: draggingSourceListId,
-                    itemId: draggingData.id
-                });
+                    setRemoveFromListSignal({
+                        listId: draggingSourceListId,
+                        itemId: draggingData.id
+                    });
+                }
             }
         }
 
-        // Reset drag state
+        // Always reset dragging data when dropping has ended
         setDraggingData(null);
         setDraggingIndex(null);
         setDragOverIndex(null);
@@ -99,7 +104,7 @@ const DragNDropList = ({listItems, listId, onChange, isDroppable = true}) => {
         setDraggingSourceListId(null);
     };
 
-
+    // Void div used to show the user where the dragged element would drop before its actually dropped
     const Placeholder = () => (
         <div
             style={{
@@ -113,26 +118,37 @@ const DragNDropList = ({listItems, listId, onChange, isDroppable = true}) => {
     )
 
     const draggableListStyle = {
-        display: "flex",
-        flexDirection: "row",
         alignItems: "center",
-        flexWrap: "wrap", // optional
-        minHeight: "4rem",
-        border: "1px solid black",
-        padding: "4px",
-        gap: "4px"
+        backgroundColor: "#F8F9FA",
+        boxShadow: "0 0 5px 0 rgba(0, 0, 0, 0.2)",
+        display: "flex",
+        flex: "1 1 0",
+        flexDirection: "row",
+        gap: "0.5rem",
+        justifyContent: listItems?.length ? "flex-start" : "center",
+        maxWidth: "100%",
+        minHeight: "3rem",
+        overflowX: "auto",
+        padding: "2px",
+        whiteSpace: "nowrap",
+        scrollbarGutter: "stable"
     }
 
     const draggableItemStyle = {
-        padding: "8px",
-        border: "1px dashed gray",
-        width: 80,
-        height: 40,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        alignSelf: "center",
+        border: "1px solid gray",
+        borderRadius: "0.375rem",
         cursor: "grab",
-        flexShrink: 0
+        display: "inline-block",
+        paddingInline: "4px",
+        paddingBlock: "0.25px",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+        height: 40,
+        width: 80,
+        lineHeight: "40px",
+        textAlign: "center",
     }
 
     return isDroppable
@@ -141,32 +157,41 @@ const DragNDropList = ({listItems, listId, onChange, isDroppable = true}) => {
             onDrop={handleOnDrop}
             onDragOver={handleDragOverEmpty}
         >
+            {isDroppable && listItems.length <= 0 && <span style={{color: "gray"}}>Drop items here</span>}
             {listItems.map((item, index) => {
-                const showPlaceholder = dragOverTargetListId === listId && dragOverIndex === index && (!draggingIndex || ![draggingIndex, draggingIndex + 1].includes(dragOverIndex));
+                const showPlaceholder = dragOverTargetListId === listId && dragOverIndex === index && (listId !== draggingSourceListId || draggingIndex === undefined || draggingIndex === null || ![draggingIndex, draggingIndex + 1].includes(dragOverIndex));
 
                 return (
                     <Fragment key={`${listId}-id-${item.id}`}>
+                        {listItems.length === 0 && isDroppable && <span>Drop here</span>}
                         {showPlaceholder && <Placeholder/>}
                         <div
                             draggable
                             onDragStart={() => handleOnDrag(item, index)}
                             onDrop={handleOnDrop}
                             onDragOver={(e) => handleDragOver(e, index)}
-                            style={draggableItemStyle}
                         >
-                            {item.name}
+                            <span 
+                                style={draggableItemStyle}
+                            >
+                                {item.name}
+                            </span>
                         </div>
                     </Fragment>
                 )
             })}
-            {dragOverTargetListId === listId && dragOverIndex === listItems.length && <Placeholder/>}
+            {dragOverTargetListId === listId && dragOverIndex === listItems.length && draggingIndex !== listItems.length - 1 && <Placeholder/>}
         </div>
-        : <div>
+        : <div
+            className="border rounded p-2 d-flex flex-column gap-1"
+            style={{ minWidth: "10rem", position: "relative" }}
+        >
             {listItems.map((item) => (
                 <div
                     key={item.id}
                     draggable
                     onDragStart={() => handleOnDrag(item, null)}
+                    className="border rounded px-2 py-1 bg-light"
                     style={{ padding: "4px", border: "1px solid gray", margin: "2px", cursor: "grab" }}
                 >
                     {item.name}
