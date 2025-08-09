@@ -22,7 +22,7 @@ export const lightenColor = (color, amount = AMOUNT) => {
 
     // Ensure values stay in range and convert back to hex
     const toHex = (c) => c.toString(16).padStart(2, '0');
-    return `#${toHex(r)}${toHex(g)}${toHex(b)}${toHex(a)}`.toUpperCase();
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}${color.length === 8 ? toHex(a) : ''}`.toUpperCase();
 }
 
 export const darkenColor = (hex, amount = AMOUNT) => {
