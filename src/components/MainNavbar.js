@@ -47,8 +47,6 @@ const MainNavbar = ({ savedUserLoginData }) => {
         navigate(0);
     }
 
-    console.log(userData)
-
     return (
         <Navbar className="bg-body-tertiary sticky-top" expand="md">
             <Container>
@@ -108,7 +106,7 @@ const MainNavbar = ({ savedUserLoginData }) => {
                         : <GoogleLogin
                             onSuccess={handleLogin}
                             onError={() => {
-                                console.log('Login Failed');
+                                console.error('Login Failed');
                             }}
                             type='standard'
                             theme='outline' // filled_black, outline, filled_blue
