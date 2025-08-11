@@ -1,21 +1,14 @@
 import { Container, Nav, Navbar, NavDropdown, Image } from 'react-bootstrap';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
-const MainNavbar = props => {
-    const [userData, setUserData] = useState(null);
+const MainNavbar = ({ savedUserLoginData }) => {
+    const [userData, setUserData] = useState(savedUserLoginData ?? null);
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
     const navigate = useNavigate();
-
-    useEffect(() => {
-        const user = localStorage.getItem("user");
-        if (user) {
-            setUserData(JSON.parse(user));
-        }
-    }, []);
 
     const handleLogin = async (credentialResponse) => {
         const user = jwtDecode(credentialResponse.credential);
@@ -42,24 +35,33 @@ const MainNavbar = props => {
             }
             localStorage.setItem("user", JSON.stringify(parsedData));
             setUserData(parsedData);
+            navigate("/", { replace: true });
+            navigate(0);
         }
     }
 
     const handleLogout = () => {
         localStorage.removeItem("user");
         setUserData(null);
-        navigate("/");
-    }   
+        navigate("/", { replace: true });
+        navigate(0);
+    }
+
+    console.log(userData)
 
     return (
-        <Navbar className="bg-body-tertiary sticky-top" expand="sm">
+        <Navbar className="bg-body-tertiary sticky-top" expand="md">
             <Container>
                 <Navbar.Brand href="/">BatukApp</Navbar.Brand>
                 <Navbar.Toggle />
                 <Navbar.Collapse id="basic-navbar-nav">
                     <Nav className="me-auto">
-                        <Nav.Link href="#home">Home</Nav.Link>
-                        <Nav.Link href="#link">Link</Nav.Link>
+                        {userData && <Nav.Link href="/community">Community</Nav.Link>}
+                        {userData && <Nav.Link href="/calendar">Calendar</Nav.Link>}
+                        {userData && <Nav.Link href="/formation">Formation</Nav.Link>}
+                        {userData && <Nav.Link href="/composer">Composer</Nav.Link>}
+                        {/* 
+                        // Dropdown example
                         <NavDropdown title="Dropdown" id="basic-nav-dropdown">
                             <NavDropdown.Item href="#action/3.1">Action</NavDropdown.Item>
                             <NavDropdown.Item href="#action/3.2">
@@ -71,6 +73,7 @@ const MainNavbar = props => {
                                 Separated link
                             </NavDropdown.Item>
                         </NavDropdown>
+                        */}
                     </Nav>
                 </Navbar.Collapse>
                 <Navbar.Collapse className="justify-content-end">
@@ -98,6 +101,8 @@ const MainNavbar = props => {
                             onToggle={(isOpen) => setIsProfileDropdownOpen(isOpen)}
                         >
                             <NavDropdown.Item href="/profile">Profile</NavDropdown.Item>
+                            <NavDropdown.Item href="/">Settings</NavDropdown.Item>
+                            <NavDropdown.Divider />
                             <NavDropdown.Item onClick={handleLogout}>Logout</NavDropdown.Item>
                         </NavDropdown>
                         : <GoogleLogin
