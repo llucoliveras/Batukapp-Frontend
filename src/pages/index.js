@@ -1,4 +1,4 @@
-import Community from './Community'
+import Community from './Community/index'
 import Profile from './Profile'
 import Test from './Test'
 
