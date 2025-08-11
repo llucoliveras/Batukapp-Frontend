@@ -3,6 +3,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Community, Profile, Dashboard, Test } from "./pages/index";
 import { useState } from "react";
+import Calendar from "./pages/Calendar";
 
 const App = () => {
 	const [savedUserLoginData] = useState(() => {
@@ -32,6 +33,7 @@ const App = () => {
 					<Route path="/community" element={<Community />} />
 					<Route path="/dashboard" element={<PrivateRoute><Dashboard savedUserLoginData={savedUserLoginData} /></PrivateRoute>} />
 					<Route path="/profile" element={<PrivateRoute><Profile savedUserLoginData={savedUserLoginData} /></PrivateRoute>} />
+					<Route path="/calendar" element={<PrivateRoute><Calendar savedUserLoginData={savedUserLoginData} /></PrivateRoute>} />
 					<Route path="/test" element={<Test />} />
 					<Route path="*" element={<h1>404 Not Found</h1>} />
 				</Routes>
