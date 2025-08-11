@@ -41,7 +41,7 @@ const Community = () => {
     }, [cardsData]);
 
     const skeletons = Array(9).fill(0).map((_, i) => {
-        var random_height = Math.floor(Math.random() * (300 - 200 + 1)) + 200;
+        var random_height = Math.floor(Math.random() * (500 - 200 + 1)) + 200;
         return (
         <div key={i} style={{ height: random_height, width: '100%' }}>
             <div style={{ height: '100%', width: '100%' }}>
