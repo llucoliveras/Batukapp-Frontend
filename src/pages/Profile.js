@@ -37,7 +37,11 @@ const EditModal = ({ show, editModalInformation, handleClose, allInstruments, ro
     const [editableData, setEditableData] = useState([]);
     const [editableInstruments, setEditableInstruments] = useState([]);
     const [editableUsers, setEditableUsers] = useState([]);
-    const [isValidData, setIsValidData] = useState(false);
+    const [isDataChanged, setIsDataChanged] = useState({
+        fieldsUnchanged: false,
+        instrumentsUnchanged: false,
+        usersUnchanged: false,
+    });
     const [modalSize, setModalSize] = useState('md');
     const [context, setContext] = useState('user');
     const [instrumentToAdd, setInstrumentToAdd] = useState({});
@@ -64,9 +68,9 @@ const EditModal = ({ show, editModalInformation, handleClose, allInstruments, ro
         }
     }, [editModalInformation, show]);
 
-    const validateData = useCallback(() => {
+    const checkChangedData = useCallback(() => {
         // Check for data fields changes
-        const fieldsValid = editModalInformation.fields && editableData.every((field, i) => {
+        const fieldsUnchanged = editModalInformation.fields && editableData.every((field, i) => {
             const original = editModalInformation.fields[i];
             const matchesValue = field.value === original?.value;
             const withinLength = !field.max_length || field.value.length <= field.max_length;
@@ -78,18 +82,24 @@ const EditModal = ({ show, editModalInformation, handleClose, allInstruments, ro
         })
 
         // Check for instruments changes
-        const instrumentsValid = editModalInformation?.instruments?.every(original => {
-            const edited = editableInstruments?.find(inst => inst.idinstrument === original.idinstrument);
-            if (!edited) return false; // Deleted instrument → fail
+        const instrumentsUnchanged = (() => {
+            if (editableInstruments?.length !== editModalInformation?.instruments?.length) {
+                return false; // Added or removed instrument → fail
+            }
 
-            const matchesQuantity = edited.quantity === original.quantity;
-            const matchesMinFormation = edited.min_formation === original.min_formation;
+            return editModalInformation?.instruments?.every(original => {
+                const edited = editableInstruments?.find(inst => inst.idinstrument === original.idinstrument);
+                if (!edited) return false; // Deleted instrument → fail
 
-            return matchesQuantity && matchesMinFormation;
-        });
+                const matchesQuantity = edited.quantity === original.quantity;
+                const matchesMinFormation = edited.min_formation === original.min_formation;
+
+                return matchesQuantity && matchesMinFormation;
+            });
+        })();
 
         // Check for users changes
-        const usersValid = editableUsers && editableUsers.every(user => {
+        const usersUnchanged = editableUsers && editableUsers.every(user => {
             const originalUser = editModalInformation?.users?.find(u => u.iduser === user.iduser);
             if (!originalUser) return false;
 
@@ -103,12 +113,16 @@ const EditModal = ({ show, editModalInformation, handleClose, allInstruments, ro
             });
         });
 
-        return fieldsValid && instrumentsValid && usersValid;
-    }, [editableData, editableInstruments, editModalInformation, editableUsers]);
+        return {
+            "fieldsUnchanged": fieldsUnchanged,
+            "instrumentsUnchanged": instrumentsUnchanged,
+            "usersUnchanged": usersUnchanged
+        }
+    }, [editModalInformation, editableData, editableInstruments, editableUsers]);
 
     useEffect(() => {
-        setIsValidData(validateData());
-    }, [validateData]);
+        setIsDataChanged(checkChangedData());
+    }, [checkChangedData]);
 
     const handleSave = async () => {
         const id = editModalInformation?.id;
@@ -117,18 +131,14 @@ const EditModal = ({ show, editModalInformation, handleClose, allInstruments, ro
         editableData.forEach(field => {
             payload[field.name] = field.value;
         });
-        payload.instruments = editableInstruments.map(inst => ({
-            idinstrument: inst.idinstrument,
-            name: inst.name,
-            quantity: inst.quantity,
-            min_formation: inst.min_formation
-        }));
+        payload.instruments = editableInstruments;
+        payload.users = editableUsers;
 
         let url = '';
         if (context === 'user') {
             url = `/users/${id}`;
         } else if (context === 'band') {
-            url = `/bands/${id}`;
+            url = `/bands/${id}?${Object.keys(isDataChanged).map(key => `${key}=${isDataChanged[key]}`).join("&")}`;
         }
 
         try {
@@ -349,7 +359,7 @@ const EditModal = ({ show, editModalInformation, handleClose, allInstruments, ro
                                                     maxWidth: "100%"
                                                 }}
                                                 >
-                                                    {user.iduser}
+                                                    {user.name}
                                                 </h6>
                                             </div>
 
@@ -396,7 +406,7 @@ const EditModal = ({ show, editModalInformation, handleClose, allInstruments, ro
             </Modal.Body>
             <Modal.Footer>
                 <Button variant="secondary" onClick={handleClose}> Close </Button>
-                <Button variant="primary" onClick={handleSave} disabled={isValidData}> Save Changes </Button>
+                <Button variant="primary" onClick={handleSave} disabled={isDataChanged.fieldsUnchanged && isDataChanged.instrumentsUnchanged && isDataChanged.usersUnchanged}> Save Changes </Button>
             </Modal.Footer>
         </Modal>
     )
