@@ -2,17 +2,16 @@ import { Fragment, useEffect, useState } from 'react';
 import ShowEntityProfile from './ShowEntityProfile'
 import EditModal from './EditModal';
 
-const Profile = () => {
-    const [userData, setUserData] = useState(null);
+const Profile = ({ savedUserLoginData }) => {
+    const [userData, setUserData] = useState(savedUserLoginData);
     const [allInstruments, setAllInstruments] = useState([])
     const [roleTypes, setRoleTypes] = useState(null);
     const [editModalInformation, setEditModalInformation] = useState([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
 
     useEffect(() => {
-        let user = JSON.parse(localStorage.getItem("user"));
-        getProfileData(user.iduser);
-    }, []);
+        getProfileData(savedUserLoginData.iduser);
+    }, [savedUserLoginData.iduser]);
 
     const getProfileData = async (iduser) => {
         try {
