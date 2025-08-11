@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import ShowEntityProfile from './ShowEntityProfile'
 import EditModal from './EditModal';
 
