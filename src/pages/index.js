@@ -1,5 +1,6 @@
-import Community from './Community/index'
-import Profile from './Profile/index'
+import Community from './Community'
+import Dashboard from './Dashboard';
+import Profile from './Profile'
 import Test from './Test'
 
-export { Community, Profile, Test };
+export { Community, Dashboard, Profile, Test };
