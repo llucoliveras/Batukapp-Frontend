@@ -19,7 +19,7 @@ const App = () => {
 	const Layout = ({ children }) => (
 		<div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
 			<MainNavbar savedUserLoginData={savedUserLoginData} />
-			<main style={{ flexGrow: 1, overflow: "hidden" }}>
+			<main style={{ flexGrow: 1 }}>
 				{children}
 			</main>
 		</div>
